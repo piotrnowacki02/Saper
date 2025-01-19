@@ -1,6 +1,6 @@
 # Projekt Saper - Gra Sieciowa
 
-**Saper** to gra sieciowa oparta na architekturze klient-serwer, w której dwóch graczy rywalizuje w odkrywaniu pól na planszy.
+**Saper** to gra sieciowa oparta na architekturze klient-serwer, w której dwóch graczy rywalizuje w odkrywaniu pól na planszy. (Program wspiera wiele równoległych rozgrywek między parami graczy.)
 
 ---
 
