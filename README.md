@@ -47,7 +47,7 @@ Aby uruchomić grę, upewnij się, że posiadasz:
    ./cli
 Uruchom przynajmniej dwóch graczy, aby rozpocząć rozgrywkę.
 ### **Rozgrywka**
-1. Po uruchomieniu gry, serwer tworzy dla nich planszę.
+1. Po uruchomieniu gry, serwer tworzy dla graczy planszę.
 2. Każdy z graczy w swojej turze może poruszać się po planszy używając klawiszy:
 - **`w`** – porusz się w górę
 - **`a`** – porusz się w lewo
