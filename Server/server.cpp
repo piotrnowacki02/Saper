@@ -69,7 +69,7 @@ void handleGame(int client1, int client2) {
         // Sprawdź, czy przeciwnik jest połączony
         if (sendString(opponentSocket, "Check") < 0) {
             std::cerr << "Opponent disconnected before their turn." << std::endl;
-            sendString(currentPlayerSocket, "Opponent disconnected. You win!");
+            sendString(currentPlayerSocket, "WIN");
             gameOver = true;
             break;
         }
@@ -77,7 +77,7 @@ void handleGame(int client1, int client2) {
         // Powiadomienie aktywnego gracza o jego turze
         if (sendString(currentPlayerSocket, "Your turn") < 0) {
             std::cerr << "Active player disconnected during their turn." << std::endl;
-            sendString(opponentSocket, "Opponent disconnected. You win!");
+            sendString(opponentSocket, "WIN");
             gameOver = true;
             break;
         }
@@ -86,7 +86,7 @@ void handleGame(int client1, int client2) {
         std::string moveStr = recvString(currentPlayerSocket);
         if (moveStr.empty()) {  // Gracz rozłączył się
             std::cerr << "Player " << game.getPlayer() + 1 << " disconnected." << std::endl;
-            sendString(opponentSocket, "Opponent disconnected. You win!");
+            sendString(opponentSocket, "WIN");
             gameOver = true;
             break;
         }
@@ -184,7 +184,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 10) < 0) { // Zwiększ limit oczekujących połączeń
+    if (listen(server_fd, 10) < 0) {
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
