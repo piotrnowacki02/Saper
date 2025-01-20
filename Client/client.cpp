@@ -73,7 +73,7 @@ int main()
         std::string serverMessage = recvString(sock);
 
         if (serverMessage.empty()) {
-            std::cout << "Server disconnected unexpectedly. Exiting game." << std::endl;
+            std::cout << "WIN!" << std::endl;
             break;
         }
 
