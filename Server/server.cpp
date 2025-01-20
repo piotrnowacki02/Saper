@@ -14,23 +14,32 @@
 #include <condition_variable>
 
 #define PORT 8080
-#define MAX_CLIENTS 2
 
 std::mutex queueMutex;
 std::condition_variable queueCV;
 std::queue<int> waitingPlayers;
 
-void sendString(int socket, const std::string& message) {
+int sendString(int socket, const std::string& message) {
     int sizeOfMsg = message.size();
-    send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
-    send(socket, message.c_str(), sizeOfMsg, 0);
+    if (send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0) <= 0) {
+        return -1; // Błąd przy wysyłaniu rozmiaru wiadomości
+    }
+    if (send(socket, message.c_str(), sizeOfMsg, 0) <= 0) {
+        return -1; // Błąd przy wysyłaniu właściwej wiadomości
+    }
+    return 0;
 }
+
 
 std::string recvString(int socket) {
     int sizeOfMsg;
-    recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    if (recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0) <= 0) {
+        return "";
+    }
     char buffer[sizeOfMsg + 1];
-    recv(socket, buffer, sizeOfMsg, 0);
+    if (recv(socket, buffer, sizeOfMsg, 0) <= 0) {
+        return "";
+    }
     buffer[sizeOfMsg] = '\0';
     return std::string(buffer);
 }
@@ -41,57 +50,79 @@ void handleGame(int client1, int client2) {
 
     Saper game(10, 10, 15);
 
-    // Wysłanie początkowego stanu gry do obu graczy
     std::string mapForUser = game.userMapToStrBuffer();
-    sendString(client1, mapForUser);
-    sendString(client2, mapForUser);
+
+    // Wyślij początkowy stan gry do obu graczy
+    if (sendString(client1, mapForUser) < 0 || sendString(client2, mapForUser) < 0) {
+        std::cerr << "Failed to send initial map. A player may have disconnected." << std::endl;
+        close(client1);
+        close(client2);
+        return;
+    }
 
     bool gameOver = false;
-    while (!game.isWin() && !gameOver) {
 
-        // Powiadomienie aktywnego gracza, że jest jego tura
+    while (!gameOver && !game.isWin()) {
         int currentPlayerSocket = (game.getPlayer() == 0) ? client1 : client2;
         int opponentSocket = (game.getPlayer() == 0) ? client2 : client1;
 
-        sendString(currentPlayerSocket, "Your turn");
-
-        // Oczekiwanie na ruch aktywnego gracza
-        std::string moveStr = recvString(currentPlayerSocket);
-        if (moveStr.empty()) {
-            std::cerr << "Player " << game.getPlayer() + 1 << " disconnected." << std::endl;
+        // Sprawdź, czy przeciwnik jest połączony
+        if (sendString(opponentSocket, "Check") < 0) {
+            std::cerr << "Opponent disconnected before their turn." << std::endl;
+            sendString(currentPlayerSocket, "Opponent disconnected. You win!");
             gameOver = true;
             break;
         }
 
-        // Obsługa ruchu
+        // Powiadomienie aktywnego gracza o jego turze
+        if (sendString(currentPlayerSocket, "Your turn") < 0) {
+            std::cerr << "Active player disconnected during their turn." << std::endl;
+            sendString(opponentSocket, "Opponent disconnected. You win!");
+            gameOver = true;
+            break;
+        }
+
+        // Oczekiwanie na ruch gracza
+        std::string moveStr = recvString(currentPlayerSocket);
+        if (moveStr.empty()) {  // Gracz rozłączył się
+            std::cerr << "Player " << game.getPlayer() + 1 << " disconnected." << std::endl;
+            sendString(opponentSocket, "Opponent disconnected. You win!");
+            gameOver = true;
+            break;
+        }
+
+        // Obsługa ruchu gracza
         game.handleMove(moveStr[0]);
 
-        // Sprawdzenie czy po odkryciu tego pola gra się zakończy (WIN/LOSE)
+        // Sprawdzenie stanu gry
         gameOver = game.isGameOver();
 
-        // Aktualizacja planszy dla obu graczy (odesłanie im planszy)
+        // Aktualizacja planszy dla obu graczy
         mapForUser = game.userMapToStrBuffer();
-        sendString(client1, mapForUser);
-        sendString(client2, mapForUser);
+        if (sendString(client1, mapForUser) < 0 || sendString(client2, mapForUser) < 0) {
+            std::cerr << "Failed to send updated map. A player may have disconnected." << std::endl;
+            gameOver = true;
+            break;
+        }
 
-        // Obsługa zakończenia gry
+        // Jeśli gra się zakończyła, wyślij odpowiedni komunikat
         if (gameOver) {
             sendString(currentPlayerSocket, "LOSE");
             sendString(opponentSocket, "WIN");
-            break;
         }
     }
 
-    // Obsługa remisu (wysłanie do obu graczy komunikatu)
+    // Obsługa remisu
     if (game.isWin() && !gameOver) {
         sendString(client1, "DRAW");
         sendString(client2, "DRAW");
     }
 
-    // Zamknięcie połączeń
+    // Zamknięcie gniazd
     close(client1);
     close(client2);
 }
+
 
 void acceptClients(int server_fd) {
     struct sockaddr_in address;

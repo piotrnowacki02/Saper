@@ -8,17 +8,26 @@
 
 #define PORT 8080
 
-void sendString(int socket, const std::string& message) {
+int sendString(int socket, const std::string& message) {
     int sizeOfMsg = message.size();
-    send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
-    send(socket, message.c_str(), sizeOfMsg, 0);
+    if (send(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0) <= 0) {
+        return -1; // Błąd przy wysyłaniu rozmiaru wiadomości
+    }
+    if (send(socket, message.c_str(), sizeOfMsg, 0) <= 0) {
+        return -1; // Błąd przy wysyłaniu właściwej wiadomości
+    }
+    return 0;
 }
 
 std::string recvString(int socket) {
     int sizeOfMsg;
-    recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0);
+    if (recv(socket, &sizeOfMsg, sizeof(sizeOfMsg), 0) <= 0) {
+        return ""; // Rozłączenie lub błąd
+    }
     char buffer[sizeOfMsg + 1];
-    recv(socket, buffer, sizeOfMsg, 0);
+    if (recv(socket, buffer, sizeOfMsg, 0) <= 0) {
+        return ""; // Rozłączenie lub błąd
+    }
     buffer[sizeOfMsg] = '\0';
     return std::string(buffer);
 }
@@ -63,20 +72,31 @@ int main()
     while (!gameOver) {
         std::string serverMessage = recvString(sock);
 
+        if (serverMessage.empty()) {
+            std::cout << "Server disconnected unexpectedly. Exiting game." << std::endl;
+            break;
+        }
+
         if (serverMessage == "Your turn") {
             std::cout << "Your turn! Enter move (w/a/s/d/space/enter): " << std::endl;
             read(STDIN_FILENO, &move, 1);
             std::cout << std::endl;
-            sendString(sock, std::string(1, move));
+            if (sendString(sock, std::string(1, move)) < 0) {
+                std::cout << "Failed to send move. Server might be down." << std::endl;
+                break;
+            }
 
         } else if (serverMessage == "WIN" || serverMessage == "LOSE" || serverMessage == "DRAW") {
             std::cout << serverMessage << std::endl;
             gameOver = true;
+        } else if (serverMessage == "Check") {
+            continue;
         } else {
             system("clear");
             std::cout << serverMessage << std::endl;
         }
     }
+
 
     term.c_lflag |= (ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &term);

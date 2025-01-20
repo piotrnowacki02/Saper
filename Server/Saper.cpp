@@ -386,6 +386,7 @@ void Saper::handleMove(char move) {
     }
     case '\n': 
     {
+        if(visibleMap[pos_x][pos_y]) break;
         reveal(pos_x, pos_y); 
         changePlayer();
         break;
